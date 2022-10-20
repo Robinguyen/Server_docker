@@ -1,0 +1,22 @@
+version: "3.4"
+services:
+  app:
+    image: qnx-server:deploy-server
+    ports:
+      - "5001:5001"
+    depends_on: #wait database start
+      - db
+  db:
+    image: postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=Admin123
+      - POSTGRES_DB=qnx_data
+    ports: 
+      - 5433:5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
+  
