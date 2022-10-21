@@ -157,7 +157,6 @@ router.post("/get-data/loc", async (req, res)=>{
             return res.send(`no data with ${aircaft_id}`);
         }
         let dataValue = _realtimeID.rows[0].data[_realtimeID.rows[0].data.length - 1];
-        console.log(dataValue);
         return res.json({"aiid" : `${_realtimeID.rows[0].aiid.toString()}`, "data" : `${dataValue}` });
         
     } catch (error) {

@@ -61,7 +61,6 @@ router.post("/login",validInfo, async (req, res) => {
            password,
             admin_account.rows[0].password
         ); 
-        console.log(admin_account.rows)
         if(!validPassword){
             return res.status(401).json({jwtToken : null, role : null, message : "Invalid Credential"});
         }
@@ -156,6 +155,20 @@ router.post("/update", async (req, res) => {
 
 
 });
+
+router.post("/test", async(req,res)=>{
+    console.log("helloword");
+    try {
+        const{data}= req.body;
+        console.log(data);
+      const dt =   await pool.query("SELECT NOW();");
+      console.log(dt.rows);
+      return res.status(200).send(dt.rows);
+
+    } catch (error) {
+        return res.status(401).send("Server Error");
+    }
+})
 
 module.exports = router;
 

@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const authorize = require("../middleware/authorization");
 const pool = require("../db");
+var replaceAll = require("replaceall");
 /*router server flight_statistics */
 var set_page = 0;
 var search_total= [];
@@ -10,46 +11,44 @@ var total_result = [];
 var text_search  = "";
 router.post('/search-statistics/home', async(req, res)=>{
 	try{
-		search_total=[];
-		realtime_name=[];
-		var union = 'SELECT COUNT(fdua) as rtid, SUM(area) as area , extract(HOUR FROM (sum(fdua::time))) + ROUND(extract(minutes FROM (sum(fdua::time)))/60, 2) as time FROM ( ';
-		const get_nameTable = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_name like 'rt_%';");
-		
-		for (const value in get_nameTable.rows) {
-			const check_realtime = await pool.query(`SELECT realtime_id FROM ${get_nameTable.rows[value].table_name} WHERE landing_time is not null LIMIT 1;`);
-			if (check_realtime.rows.length != 0) {
-				realtime_name.push(get_nameTable.rows[value].table_name);
-			}
+	search_total=[];
+	realtime_name=[];
+	var union = 'SELECT COUNT(fdua) as rtid, SUM(area) as area , extract(HOUR FROM (sum(fdua::time))) + ROUND(coalesce(extract(minutes FROM (sum(fdua::time)))/60)::numeric, 2) as time FROM ( ';
+	const get_nameTable = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_name like 'rt_%';");
+	for (const value in get_nameTable.rows) {
+		const check_realtime = await pool.query(`SELECT realtime_id FROM ${get_nameTable.rows[value].table_name} WHERE landing_time is not null LIMIT 1;`);
+		if (check_realtime.rows.length != 0) {
+			realtime_name.push(get_nameTable.rows[value].table_name);
 		}
-		for (const value in realtime_name) {
-			if (value == realtime_name.length - 1) {
-				union += `SELECT coalesce((area::numeric)) as area, flight_duaration::time as fdua FROM ${realtime_name[value]} WHERE 
-				landing_time is not null) as t;`;
-				break;
-			}
-			union += `SELECT coalesce((area::numeric)) as area, flight_duaration::time as fdua FROM ${realtime_name[value]} WHERE 
-			landing_time is not null UNION ALL `;
-		}
-		const get_data = await pool.query(union);
-		search_total.push(
-			{ topa: parseInt(get_data.rows[0].rtid) },
-			{ page: Math.ceil(get_data.rows[0].rtid / 10) },
-			{
-				tare: Math.round(parseFloat(get_data.rows[0].area) * 100) / 100,
-			},
-			{ tfdu: parseFloat(get_data.rows[0].time) },
-			{ tfli: parseInt(get_data.rows[0].rtid) },
-		);
-		
-		return res.status(200).send(search_total);
-	}catch(error){
-		return res.status(401).send("Server Error");
 	}
-});
+	for (const value in realtime_name) {
+		if (value == realtime_name.length - 1) {
+			union += `SELECT coalesce((area::numeric)) as area, flight_duaration::time as fdua FROM ${realtime_name[value]} WHERE 
+			landing_time is not null) as t;`;
+			break;
+		}
+		union += `SELECT coalesce((area::numeric)) as area, flight_duaration::time as fdua FROM ${realtime_name[value]} WHERE 
+		landing_time is not null UNION ALL `;
+	}
+	const get_data = await pool.query(union);
+	search_total.push(
+		{ topa: parseInt(get_data.rows[0].rtid) },
+		{ page: Math.ceil(get_data.rows[0].rtid / 10) },
+		{
+			tare: Math.round(parseFloat(get_data.rows[0].area) * 100) / 100,
+		},
+		{ tfdu: parseFloat(get_data.rows[0].time) },
+		{ tfli: parseInt(get_data.rows[0].rtid) },
+	);
 
+	return res.status(200).send(search_total);
+}catch(error){
+	return res.status(401).send("Server Error");
+}
+});
 router.post('/search-statistics', async (req, res) => {
 	try {
-		var union = 'SELECT COUNT(fdua) as rtid, SUM(area) as area , extract(HOUR FROM (sum(fdua::time))) + ROUND(extract(minutes FROM (sum(fdua::time)))/60, 2) as time FROM ( ';
+		var union = 'SELECT COUNT(fdua) as rtid, SUM(area) as area , extract(HOUR FROM (sum(fdua::time))) + ROUND(coalesce(extract(minutes FROM (sum(fdua::time)))/60)::numeric, 2) as time FROM ( ';
 		//var union="";
 		var union_data = ''; // query string
 		const { start_date, end_date, team_name, aircaft_name, mode, location, spraying, spreading, account, area, page, sepage } = req.body;
@@ -297,15 +296,14 @@ router.post('/search-statistics', async (req, res) => {
 //get statistics search
 
 router.post('/get-statistics', async (req, res) => {
-	var union = 'SELECT COUNT(fdua) as rtid, COALESCE(SUM(area),0) as area, extract(HOUR FROM (sum(fdua::time))) + ROUND(extract(minutes FROM (sum(fdua::time)))/60, 2) as time from (',
+	var union = 'SELECT COUNT(fdua) as rtid, COALESCE(SUM(area),0) as area, extract(HOUR FROM (sum(fdua::time))) + ROUND(coalesce(extract(minutes FROM (sum(fdua::time)))/60)::numeric, 2) as time from (',
 		union_data = ''; // query string
 	const { text, page, sepage } = req.body;
-    console.log(page)
 	try {
 		if (text == 'null') {
 			try {
 				//2.4. get data rows data
-				if (page == 1) {
+				if (page == '1') {
 					//2.4.1. get page number
 					for (const value in realtime_name) {
 						if (value == realtime_name.length - 1) {
@@ -339,6 +337,7 @@ router.post('/get-statistics', async (req, res) => {
 					}
 				}
 				const get_rowsData = await pool.query(union_data);
+				
 				if(set_page!=sepage){
 						total_result=[];
 						set_page =sepage;
@@ -363,7 +362,7 @@ router.post('/get-statistics', async (req, res) => {
 			}
 		} else {
 			try {
-				if (page == 1) {
+				if (page ==1) {
                     
 					//2.1. query string scan column
 					if (set_page != sepage|| text_search != text) {
